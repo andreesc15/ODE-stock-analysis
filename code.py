@@ -244,7 +244,7 @@ def run_simulation(filename, forecast_t_start, forecast_t_total, displayFit, dis
 
         title = f"Forecast {os.path.splitext(os.path.basename(filename))[0]} {dateList[forecast_t_start]} to {dateList[forecast_t_start+forecast_t_total+2]}"
         fig1.canvas.get_default_filename = lambda : '%s.%s' % (title, fig1.canvas.get_default_filetype())
-        fig1.canvas.set_window_title(title)
+        #fig1.canvas.set_window_title(title)
         fig1.tight_layout()
         fig1.autofmt_xdate()
     #------------------------generate fit plot
@@ -268,7 +268,7 @@ def run_simulation(filename, forecast_t_start, forecast_t_total, displayFit, dis
 
         title = f"Fit {os.path.splitext(os.path.basename(filename))[0]} {dateList[0]} to {dateList[-1]}"
         fig2.canvas.get_default_filename = lambda : '%s.%s' % (title, fig2.canvas.get_default_filetype())
-        fig2.canvas.set_window_title(title)
+        #fig2.canvas.set_window_title(title)
         fig2.tight_layout()
         fig2.autofmt_xdate()   
     #----------------------- display / pdf branch --
@@ -344,11 +344,11 @@ def run_simulation(filename, forecast_t_start, forecast_t_total, displayFit, dis
         pdf.output(f"{os.path.splitext(os.path.basename(filename))[0]}.pdf")
     
     elif displayForecast:
-        fig1.show()
+        #fig1.show()
         return fig1
     
     elif displayFit:
-        fig2.show()
+        #fig2.show()
         return fig2
 
 def string_to_date(string):
@@ -447,9 +447,6 @@ def simulation_window(filename):
     startDateDisplay = startDate.strftime("%Y-%m-%d")
     endDateDisplay = endDate.strftime("%Y-%m-%d")
 
-    fitFigure = run_simulation(filename,dateList.index(startDate.strftime("%Y-%m-%d")),
-                45, True, False, False)
-
     tk.Label(
             simulationWindow, 
             text=f"Currently processing: {os.path.basename(filename)}\nData Size: {len(curr)} rows\nFit interval: {startDateDisplay} to {endDateDisplay}",
@@ -491,25 +488,43 @@ def simulation_window(filename):
     def test_function_2():
         print("Hello! This function is to save raw data as .csv")
 
+    def startSimulation(displayFit, displayForecast, printReport):
+        curr_date = forecastDate.get_date()
+        curr_duration = int(forecastDuration.get())
+        print([displayFit,displayForecast,printReport])
+
+        if(curr_date.weekday() > 4):
+            messagebox.showerror("DateError","Date Error.\nChoose valid trading weekdays only. No weekend!")
+        elif (dateList.index(curr_date.strftime("%Y-%m-%d"))+curr_duration >= len(dateList)):
+            messagebox.showerror("ForecastOverflow","Forecast Overflow.\nForecast duration exceeds provided data.")
+        else:
+            return run_simulation(filename,dateList.index(curr_date.strftime("%Y-%m-%d")),
+                curr_duration, displayFit, displayForecast, printReport)
+
     tk.Button(simulationWindow, 
         text="📰 Save report as .pdf",
         width=20,height=2,
         padx=20, pady=5,
-        command=test_function_1).grid(padx=20, pady=5, row=5,columnspan=2,sticky=W)
+        command=test_function_1).grid(padx=20, pady=5, row=24,columnspan=2,sticky=W)
 
     tk.Button(simulationWindow, 
         text="📰 Save raw data as .csv",
         width=20,height=2,
         padx=20, pady=5,
-        command=test_function_2).grid(padx=20, pady=5, row=6,columnspan=2,sticky=W)
+        command=test_function_2).grid(padx=20, pady=5, row=25,columnspan=2,sticky=W)
+
+    fitFigure = startSimulation(True, False, False)
+    forecastFigure = startSimulation(False, True, False)
+    fitFigure.show()
+    forecastFigure.show()
 
     canvas1 = FigureCanvasTkAgg(fitFigure, master = simulationWindow)
     canvas1.draw()
-    canvas1.get_tk_widget().grid(padx=20, pady=5, row=1, column = 2, rowspan = 9, columnspan = 4)
+    canvas1.get_tk_widget().grid(padx=20, pady=5, row=1, column = 2, rowspan = 18, columnspan = 4)
 
-    canvas2 = FigureCanvasTkAgg(fitFigure, master = simulationWindow)
+    canvas2 = FigureCanvasTkAgg(forecastFigure, master = simulationWindow)
     canvas2.draw()
-    canvas2.get_tk_widget().grid(padx=20, pady=5, row=10, column = 2, rowspan = 9, columnspan = 4)
+    canvas2.get_tk_widget().grid(padx=20, pady=5, row=19, column = 2, rowspan = 12, columnspan = 4)
 
 def simulation_options_window(filename):
     simulationWindow = tk.Tk()
