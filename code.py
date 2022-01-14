@@ -3,11 +3,12 @@
 from dateutil import parser
 from tkcalendar import DateEntry
 from datetime import date, datetime
-from tkinter.constants import END, INSERT, LEFT, RIGHT, WORD, Y
+from tkinter.constants import END, INSERT, LEFT, RIGHT, WORD, Y, W
 from tkinter import messagebox
 import pandas as pd
 import numpy as np 
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
 import tkinter as tk
 import os as os
 from fpdf import FPDF
@@ -344,9 +345,11 @@ def run_simulation(filename, forecast_t_start, forecast_t_total, displayFit, dis
     
     elif displayForecast:
         fig1.show()
+        return fig1
     
     elif displayFit:
         fig2.show()
+        return fig2
 
 def string_to_date(string):
     return parser.parse(string)
@@ -425,10 +428,88 @@ def browse_files():
         filename = tk.filedialog.askopenfilename(title = "Select file",filetypes = (("CSV Files","*.csv"),))
         curr = pd.read_csv(filename)
         if list(curr.columns) == ['Date','Close']:
-            simulation_options_window(filename)
+            #simulation_options_window(filename)
+            simulation_window(filename)
             isFileCorrect = True
         else:
             messagebox.showerror("FileError","File Error -- file does not match the format required. Make sure it's a 2 columns .csv file with \'Date\' and \'Close\' as headers and try again.")
+
+def simulation_window(filename):
+    simulationWindow = tk.Tk()
+    simulationWindow.title(f"Running simulation on {os.path.basename(filename)}...")
+    curr = pd.read_csv(filename)
+
+    dateList = [string_to_date(x).strftime("%Y-%m-%d") for x in list(curr['Date'])]
+    #print(dateList)        
+    startDate = string_to_date(dateList[0])
+    endDate = string_to_date(dateList[-1])
+
+    startDateDisplay = startDate.strftime("%Y-%m-%d")
+    endDateDisplay = endDate.strftime("%Y-%m-%d")
+
+    fitFigure = run_simulation(filename,dateList.index(startDate.strftime("%Y-%m-%d")),
+                45, True, False, False)
+
+    tk.Label(
+            simulationWindow, 
+            text=f"Currently processing: {os.path.basename(filename)}\nData Size: {len(curr)} rows\nFit interval: {startDateDisplay} to {endDateDisplay}",
+            font = "Calibri 12", justify=LEFT,
+            padx=20, pady=5).grid(row=1, columnspan=2,sticky=W)
+
+    tk.Label(
+            simulationWindow, 
+            text="-----------------------------------------------\nForecast Parameter",
+            font = "Calibri 12 bold", justify=LEFT,
+            padx=20, pady=5).grid(row=2, columnspan=2,sticky=W)
+
+    tk.Label(
+            simulationWindow, 
+            text="Forecast start date",
+            font = "Calibri 12", justify=LEFT,
+            padx=20, pady=5).grid(row=3, column=0,sticky=W)
+        
+    forecastDate = DateEntry(simulationWindow, 
+            mindate=startDate, 
+            maxdate=endDate)
+    forecastDate.set_date(startDate)
+    forecastDate.grid(row=3,column=1,sticky=W)                      
+
+    tk.Label(
+            simulationWindow, 
+            text="Forecast duration",
+            font = "Calibri 12", justify=LEFT,
+            padx=20, pady=5).grid(row=4,column=0,sticky=W)
+    
+    forecastDuration = tk.Entry(
+            simulationWindow, width=10)
+    forecastDuration.insert(tk.END,45)
+    forecastDuration.grid(row=4,column=1,sticky=W)
+
+    def test_function_1():
+        print("Hello! This function is to save report as .pdf")
+
+    def test_function_2():
+        print("Hello! This function is to save raw data as .csv")
+
+    tk.Button(simulationWindow, 
+        text="📰 Save report as .pdf",
+        width=20,height=2,
+        padx=20, pady=5,
+        command=test_function_1).grid(padx=20, pady=5, row=5,columnspan=2,sticky=W)
+
+    tk.Button(simulationWindow, 
+        text="📰 Save raw data as .csv",
+        width=20,height=2,
+        padx=20, pady=5,
+        command=test_function_2).grid(padx=20, pady=5, row=6,columnspan=2,sticky=W)
+
+    canvas1 = FigureCanvasTkAgg(fitFigure, master = simulationWindow)
+    canvas1.draw()
+    canvas1.get_tk_widget().grid(padx=20, pady=5, row=1, column = 2, rowspan = 9, columnspan = 4)
+
+    canvas2 = FigureCanvasTkAgg(fitFigure, master = simulationWindow)
+    canvas2.draw()
+    canvas2.get_tk_widget().grid(padx=20, pady=5, row=10, column = 2, rowspan = 9, columnspan = 4)
 
 def simulation_options_window(filename):
     simulationWindow = tk.Tk()
