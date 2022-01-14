@@ -2,7 +2,7 @@
 
 from dateutil import parser
 from tkcalendar import DateEntry
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from tkinter.constants import END, INSERT, LEFT, RIGHT, WORD, Y, W
 from tkinter import messagebox
 import pandas as pd
@@ -12,16 +12,15 @@ from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationTool
 import tkinter as tk
 import os as os
 from fpdf import FPDF
+import csv as csv
 
 #---------------------Section 2: Mathematic Model---------------#
 
 def parameter_estimation_model(data,t=0):
     """
     parameter_estimation_model calculates paramters alpha_1 and beta_1 of model A using the data provided
-
     To calculate the parameters, the method uses the forward difference formula
     to approximate the diferential equation of the model.
-
     :data: closing stock price array or dataframe
     :param t: integer time number at which the model parameters are needed to be calculated.
     :return: list with value of parameters alpha_1, beta_1 and the stock value at time t (So).
@@ -49,10 +48,8 @@ def parameter_estimation_model(data,t=0):
 def model_A(dataModel):
     """
     model A generates and stores the values alpha_1 and beta_1 of model A for each time within the archive data_model
-
     To recreate the plots of the article regarding the values of the parameters, this parameters are calculated for the length of data model
     The function prints in console the mean value of each of the parameters in time.
-
     :return: list with value of time, alpha_1, beta_1 and S(t) the stock value at time t (So).
     """
     dataSize = len(dataModel)-2
@@ -74,7 +71,6 @@ def model_fit(dataModel, parameters):
     -model_fit takes parameters alpha_1 and beta_1 and the solutions of the model to fit actual price data.
     -This function considers the limitations over the 10% stock price fluctuation (ARA and ARB)
     -To choose wich solution equation to use for calculating S(t), when two or more equations are valid, maximum value is chosen.
-
     :parameters: list of values [time, alpha_1, beta_1 and actual S(t)].
     :return: Array with the fitted values of the stock price and times t, with fit MAPE and RMSPE
     
@@ -113,26 +109,21 @@ def model_fit(dataModel, parameters):
           
         if(np.abs((S_t-So)/So)>0.1):S_t=(1+0.1*np.sign(S_t-So))*So
 
-        #print([t,S_t])
-
         S_theory[t,0]=t;
         S_theory[t,1]=S_t;
 
     MAPE,RMSPE=MAPE_n_RMSPE(S_theory,dataModel)
-    print(r'Fit Model A: MAPE= %f, RMSPE= %f'%(MAPE,RMSPE))
     return S_theory, MAPE, RMSPE
 
 def model_forecast(dataModel,t_start = 0,t_total=30):
     """
     model_forecast forecast the behavior of the stock prices for a given time t using certain initial stock values 
-
     -This function considers the limitations over the 10% stock price fluctuation (ARA and ARB)
     -To choose wich solution equation to use for calculating S(t), when two or more equations are valid, maximum value is chosen.
     -Parameter value alpha_1 and beta_1 are assumed to be constant only for four days period.
     -S(t=0) to S(t=3) are used to calculate alpha_1 and beta_1 using forward difference method.
     -S(t=4) are calculated by substituting previously obtained alpha_1 and beta_1 and S_0 to S(t).
     -The function prints in console the MAPE and RMSPE of the forecast with respect to real price data.
-
     :dataModel: list of stock data prices with which the forecast is going to be initialized.
     :t_start: starting day for forecast.
     :t_total: total time in days to forecast.
@@ -176,17 +167,14 @@ def model_forecast(dataModel,t_start = 0,t_total=30):
         S_theory[t,1]=np.abs(S_t);
         
     MAPE,RMSPE=MAPE_n_RMSPE(S_theory,dataModel[t_start:t_start+t_total+3])
-    print(r'Forecast Model A: MAPE= %f, RMSPE= %f'%(MAPE,RMSPE))
     return S_theory, MAPE, RMSPE
 
 def MAPE_n_RMSPE(S_theory,S_real):
     '''
     MAPE_n_RMSPE calculates the error of the generated data (theoretical and forecast) with respect to real data.
-
     :param S_theory: array of theoretical stock prices and time
     :param S_real: array of actual stock prices and time
     :return: List with errors MAPE and RMSPE
-
     '''
     N=np.size(S_theory[1:,0]);
     
@@ -194,13 +182,16 @@ def MAPE_n_RMSPE(S_theory,S_real):
     sumMAPE=0
     sumRMSPE=0
     
-    for i in range(1,N):
-        sumMAPE+=np.abs((S_theory[i,1]-S_real[i,1])/S_real[i,1])
-        sumRMSPE+=((S_theory[i,1]-S_real[i,1])/S_real[i,1])**2
+    try:
+        for i in range(1,N):
+            sumMAPE+=np.abs((S_theory[i,1]-S_real[i,1])/S_real[i,1])
+            sumRMSPE+=((S_theory[i,1]-S_real[i,1])/S_real[i,1])**2
+        
+        MAPE=(1/N) * sumMAPE * 100
+        RMSPE=np.sqrt((1/N) * sumRMSPE) * 100
     
-    MAPE=(1/N) * sumMAPE * 100
-    RMSPE=np.sqrt((1/N) * sumRMSPE) * 100
-    
+    except IndexError:
+        MAPE,RMSPE = "N/A","N/A"
     return MAPE,RMSPE
 
 #---------------------Section 3: Run Code-----------------------#
@@ -209,8 +200,8 @@ In this section of the code, functions to call and utilize the models are called
 function run_simulation will run mathematical models given a .csv file from GUI and return plots to display
 function generate_report will run mathematical models given a .csv file from GUI and return .pdf file to be saved to local files.
 """
-
-def run_simulation(filename, forecast_t_start, forecast_t_total, displayFit, displayForecast, printReport):
+    
+def run_simulation(filename, forecast_t_start, forecast_t_total, displayFit, displayForecast, printReport, saveCSV = False):
     data_model = pd.read_csv(filename)
     dateList = list(data_model['Date'])
 
@@ -218,6 +209,63 @@ def run_simulation(filename, forecast_t_start, forecast_t_total, displayFit, dis
     
     fit_model, fit_MAPE, fit_RMSPE = model_fit(data_model, parameters)
     forecast_model, forecast_MAPE, forecast_RMSPE = model_forecast(data_model,forecast_t_start,forecast_t_total)
+
+    #------------------------for generating .csv files-----#
+    if saveCSV:
+        with open(f"Forecast {os.path.splitext(os.path.basename(filename))[0]} from {dateList[forecast_t_start]} - {forecast_t_total} days.csv","w",newline="") as f:
+            N = np.size(forecast_model[:,0])
+            header = ['index','date','real_value','theoretical_value','diff']
+            writer = csv.writer(f)
+
+            writer.writerow(header)
+            for i in range(0,N):
+                try:
+                    writer.writerow(
+                        [
+                            i,
+                            dateList[forecast_t_start+i],
+                            data_model["Close"][forecast_t_start+i],
+                            forecast_model[i,1],
+                            forecast_model[i,1] - data_model["Close"][forecast_t_start+i]
+                        ])
+                except IndexError:
+                    writer.writerow(
+                        [
+                            i,
+                            "",
+                            "",
+                            forecast_model[i,1],
+                            ""
+                        ])
+        
+        with open(f"Fit {os.path.basename(filename)} - {dateList[0]} to {dateList[-1]}.csv","w",newline="") as f:
+            N = np.size(fit_model[:,0])
+            header = ['index','date','real_value','theoretical_value','diff']
+            writer = csv.writer(f)
+
+            writer.writerow(header)
+            for i in range(0,N):
+                try:
+                    writer.writerow(
+                        [
+                            i,
+                            dateList[i],
+                            data_model["Close"][i],
+                            fit_model[i,1],
+                            fit_model[i,1] - data_model["Close"][i]
+                        ])
+                except IndexError:
+                    writer.writerow(
+                        [
+                            i,
+                            "",
+                            "",
+                            fit_model[i,1],
+                            ""
+                        ])
+        return
+
+
 
     #Start plotting here
     fig1 = plt.figure()
@@ -238,11 +286,11 @@ def run_simulation(filename, forecast_t_start, forecast_t_total, displayFit, dis
         
         ax1.set_xticks(
             data_model[forecast_t_start:forecast_t_start+forecast_t_total+3].to_numpy()[0:,0][::5])
-        ax1.set_title(f"Forecast {os.path.splitext(os.path.basename(filename))[0]}\n{dateList[forecast_t_start]} to {dateList[forecast_t_start+forecast_t_total+2]}\n(MAPE: {forecast_MAPE:.4}; RMSPE: {forecast_RMSPE:.4})")
+        ax1.set_title(f"Forecast {os.path.splitext(os.path.basename(filename))[0]}\nFrom {dateList[forecast_t_start]}, {forecast_t_total} trading days long\n(MAPE: {forecast_MAPE:.4}; RMSPE: {forecast_RMSPE:.4})")
         ax1.legend()
         ax1.tick_params(axis='both', which='both', labelsize=7, labelbottom = True, labelrotation = 45)
 
-        title = f"Forecast {os.path.splitext(os.path.basename(filename))[0]} {dateList[forecast_t_start]} to {dateList[forecast_t_start+forecast_t_total+2]}"
+        title = f"Forecast {os.path.splitext(os.path.basename(filename))[0]} From {dateList[forecast_t_start]} - {forecast_t_total} trading days long"
         fig1.canvas.get_default_filename = lambda : '%s.%s' % (title, fig1.canvas.get_default_filetype())
         #fig1.canvas.set_window_title(title)
         fig1.tight_layout()
@@ -414,11 +462,15 @@ def main_ui():
         text="Andree Sulistio Chandra\n1901478396\n\nUniversitas Bina Nusantara\n2021", 
         font = "Calibri 12",
         padx=20, pady=20).pack()
+    
+    def quit_program():
+        window.quit()
+        window.destroy()
 
     tk.Entry()
     tk.Button(text="💹 Start",width=15,height=2,command=browse_files).pack(pady=10,padx=20, side=LEFT)
     tk.Button(text="❓ Help",width=15,height=2,command=open_help_window).pack(pady=10,padx=20, side=LEFT)
-    tk.Button(text="❌ Exit",width=15,height=2,command=window.quit).pack(pady=10,padx=20, side=LEFT)
+    tk.Button(text="❌ Exit",width=15,height=2,command=quit_program).pack(pady=10,padx=20, side=LEFT)
 
     window.mainloop()
 
@@ -467,7 +519,7 @@ def simulation_window(filename):
         
     forecastDate = DateEntry(simulationWindow, 
             mindate=startDate, 
-            maxdate=endDate)
+            maxdate=endDate-timedelta(days=5))
     forecastDate.set_date(startDate)
     forecastDate.grid(row=3,column=1,sticky=W)                      
 
@@ -481,43 +533,44 @@ def simulation_window(filename):
             simulationWindow, width=10)
     forecastDuration.insert(tk.END,45)
     forecastDuration.grid(row=4,column=1,sticky=W)
-
-    def test_function_1():
-        print("Hello! This function is to save report as .pdf")
-
-    def test_function_2():
-        print("Hello! This function is to save raw data as .csv")
-
-    def startSimulation(displayFit, displayForecast, printReport):
+    
+        
+    def startSimulation(displayFit, displayForecast, printReport, saveCSV=False):
         curr_date = forecastDate.get_date()
-        curr_duration = int(forecastDuration.get())
-        print([displayFit,displayForecast,printReport])
+        
+        try:
+            curr_duration = int(forecastDuration.get())
+        except ValueError:
+            messagebox.showerror("ValueError","Enter integers only for forecast duration!")
+        
+        try:
+            date_index = dateList.index(curr_date.strftime("%Y-%m-%d"))
+        except ValueError:
+            messagebox.showerror("ValueError","Date not found in data provided. Note that valid trading days exclude weekends and some exception days.")
+        
+        return run_simulation(filename,dateList.index(curr_date.strftime("%Y-%m-%d")),
+            curr_duration, displayFit, displayForecast, printReport, saveCSV)
 
-        if(curr_date.weekday() > 4):
-            messagebox.showerror("DateError","Date Error.\nChoose valid trading weekdays only. No weekend!")
-        elif (dateList.index(curr_date.strftime("%Y-%m-%d"))+curr_duration >= len(dateList)):
-            messagebox.showerror("ForecastOverflow","Forecast Overflow.\nForecast duration exceeds provided data.")
-        else:
-            return run_simulation(filename,dateList.index(curr_date.strftime("%Y-%m-%d")),
-                curr_duration, displayFit, displayForecast, printReport)
+    def print_report():
+        print("Hello! This function is to save report as .pdf")
+        try:
+            startSimulation(displayFit = False, displayForecast = False, printReport = True)
+            messagebox.showinfo("✅ Report Generated","Report successfully generated.")
+        except Exception as e:
+            messagebox.showerror("❌ Report Not Generated","Report not generated due to error: {e}")
 
-    tk.Button(simulationWindow, 
-        text="📰 Save report as .pdf",
-        width=20,height=2,
-        padx=20, pady=5,
-        command=test_function_1).grid(padx=20, pady=5, row=24,columnspan=2,sticky=W)
-
-    tk.Button(simulationWindow, 
-        text="📰 Save raw data as .csv",
-        width=20,height=2,
-        padx=20, pady=5,
-        command=test_function_2).grid(padx=20, pady=5, row=25,columnspan=2,sticky=W)
-
+    def generate_csv():
+        print("Hello! This function is to save raw data as .csv")
+        try:
+            startSimulation(displayFit = False, displayForecast = False, printReport = False, saveCSV = True)
+            messagebox.showinfo("✅ Report Generated","Report successfully generated.")
+        except Exception as e:
+            messagebox.showerror("❌ Report Not Generated","Report not generated due to error: {e}")
+        
+ 
     fitFigure = startSimulation(True, False, False)
     forecastFigure = startSimulation(False, True, False)
-    fitFigure.show()
-    forecastFigure.show()
-
+    
     canvas1 = FigureCanvasTkAgg(fitFigure, master = simulationWindow)
     canvas1.draw()
     canvas1.get_tk_widget().grid(padx=20, pady=5, row=1, column = 2, rowspan = 18, columnspan = 4)
@@ -526,98 +579,34 @@ def simulation_window(filename):
     canvas2.draw()
     canvas2.get_tk_widget().grid(padx=20, pady=5, row=19, column = 2, rowspan = 12, columnspan = 4)
 
-def simulation_options_window(filename):
-    simulationWindow = tk.Tk()
-    simulationWindow.title(f"Running simulation on {os.path.basename(filename)}...")
-    curr = pd.read_csv(filename)
-
-    dateList = [string_to_date(x).strftime("%Y-%m-%d") for x in list(curr['Date'])]
-    #print(dateList)        
-    startDate = string_to_date(dateList[0])
-    endDate = string_to_date(dateList[-1])
-
-    startDateDisplay = startDate.strftime("%Y-%m-%d")
-    endDateDisplay = endDate.strftime("%Y-%m-%d")
-        
-    tk.Label(
-            simulationWindow, 
-            text=f"Currently processing: {os.path.basename(filename)}\nData Size: {len(curr)} rows\nFit interval: {startDateDisplay} to {endDateDisplay}",
-            font = "Calibri 12",
-            padx=20, pady=5).grid(row=1, columnspan=2)
-
-    tk.Label(
-            simulationWindow, 
-            text="-----------------------------------------------\nForecast Parameter",
-            font = "Calibri 12 bold",
-            padx=20, pady=5).grid(row=2, columnspan=2)
-
-    tk.Label(
-            simulationWindow, 
-            text="Forecast start date",
-            font = "Calibri 12",
-            padx=5, pady=5).grid(row=3, column=0)
-        
-    forecastDate = DateEntry(simulationWindow, 
-            mindate=startDate, 
-            maxdate=endDate)
-    forecastDate.set_date(startDate)
-    forecastDate.grid(row=3,column=1)                      
-
-    tk.Label(
-            simulationWindow, 
-            text="Forecast duration",
-            font = "Calibri 12",
-            padx=5, pady=5).grid(row=4,column=0)
-        
-    forecastDuration = tk.Entry(
-            simulationWindow, width=10)
-    forecastDuration.insert(tk.END,45)
-    forecastDuration.grid(row=4,column=1)
-
-    def startSimulation(displayFit, displayForecast, printReport):
-        curr_date = forecastDate.get_date()
-        curr_duration = int(forecastDuration.get())
-        print([displayFit,displayForecast,printReport])
-
-        if(curr_date.weekday() > 4):
-            warningLabel.config(text = "There are no stock closing price on weekends. Choose weekdays only!")
-            messagebox.showerror("DateError","Date Error.\nChoose valid trading weekdays only. No weekend!")
-        elif (dateList.index(curr_date.strftime("%Y-%m-%d"))+curr_duration >= len(dateList)):
-            warningLabel.config(text = "Overflow: forecast duration exceeds provided data.")
-            messagebox.showerror("ForecastOverflow","Forecast Overflow.\nForecast duration exceeds provided data.")
-        else:
-            warningLabel.config(text = "Succesfully run command.")
-            run_simulation(filename,dateList.index(curr_date.strftime("%Y-%m-%d")),
-                curr_duration, displayFit, displayForecast, printReport)
-        
-    def startFitOnly():
-        startSimulation(displayFit = True, displayForecast = False, printReport=False)
-
-    def startForecastOnly():
-        startSimulation(displayFit = False, displayForecast = True, printReport=False)
-        
-    def printReport():
-        try:
-            startSimulation(displayFit = False, displayForecast = False, printReport = True)
-            warningLabel.config(text = "Report Successfully Generated")
-        except:
-            messagebox.showerror("❌ Report Not Generated","Report not generated due to errors. Kindly check your parameters and try again.")           
+    def updateForecast():
+        for item in canvas2.get_tk_widget().find_all():
+            canvas2.get_tk_widget().delete(item)
+        drawNewForecast()
+    
+    def drawNewForecast():
+        forecastFigure = startSimulation(False, True, False)
+        canvas2 = FigureCanvasTkAgg(forecastFigure, master = simulationWindow)
+        canvas2.draw_idle()
+        canvas2.get_tk_widget().grid(padx=20, pady=5, row=19, column = 2, rowspan = 12, columnspan = 4)
 
     tk.Button(simulationWindow, 
-        text="💹 Start Fit Only",width=25,height=2,command=startFitOnly).grid(row=6,columnspan=2,pady=5)
+        text="🔎 Run Forecast",
+        width=20,height=2,
+        padx=20, pady=5,
+        command=updateForecast).grid(padx=20, pady=5, row=6,columnspan=2,sticky=W)
 
     tk.Button(simulationWindow, 
-        text=" 👀 Start Forecast Only",width=25,height=2,command=startForecastOnly).grid(row=7,columnspan=2,pady=5)
+        text="📰 Save report as .pdf",
+        width=20,height=2,
+        padx=20, pady=5,
+        command=print_report).grid(padx=20, pady=5, row=16,columnspan=2,sticky=W)
 
     tk.Button(simulationWindow, 
-        text="📰 Generate Report",width=25,height=2,command=printReport).grid(row=8,columnspan=2,pady=5)
-        
-    warningLabel = tk.Label(
-            simulationWindow, 
-            text="Please select a starting day and forecast duration. Weekdays only",
-            font = "Calibri 8",
-            padx=5, pady=5)
-    warningLabel.grid(row=9,columnspan=2,pady=5)
+        text="📰 Save raw data as .csv",
+        width=20,height=2,
+        padx=20, pady=5,
+        command=generate_csv).grid(padx=20, pady=5, row=17,columnspan=2,sticky=W)
 
 def open_help_window():
     helpText = [
