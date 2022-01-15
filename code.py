@@ -265,8 +265,6 @@ def run_simulation(filename, forecast_t_start, forecast_t_total, displayFit, dis
                         ])
         return
 
-
-
     #Start plotting here
     fig1 = plt.figure()
     fig2 = plt.figure()
