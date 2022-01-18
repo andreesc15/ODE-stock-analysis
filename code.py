@@ -13,6 +13,7 @@ import tkinter as tk
 import os as os
 from fpdf import FPDF
 import csv as csv
+from pathlib import Path
 
 #---------------------Section 2: Mathematic Model---------------#
 
@@ -357,7 +358,7 @@ def run_simulation(filename, forecast_t_start, forecast_t_total, displayFit, dis
             ""
             ]
 
-        forecastFile, fitFile = f"Forecast {os.path.splitext(os.path.basename(filename))[0]}.png", f"Fit {os.path.splitext(os.path.basename(filename))[0]}.png"
+        forecastFile, fitFile = f"Forecast {forecast_t_total} {os.path.splitext(os.path.basename(filename))[0]}.png", f"Fit {os.path.splitext(os.path.basename(filename))[0]}.png"
         fig1.savefig(forecastFile)
         fig2.savefig(fitFile)
 
@@ -434,21 +435,20 @@ def multiple_forecasts_without_UI(filename):
 
 def plotting(filename):
     print(f"Running simulation on {filename}")
-    run_simulation(filename,0,30,True,False,False)
-    run_simulation(filename,0,30,False,True,False)
-    run_simulation(filename,245,45,False,True,False)
-    run_simulation(filename,480,60,False,True,False)
+    run_simulation(filename,105,30,False,True,True)
+    run_simulation(filename,105,45,False,True,True)
+    run_simulation(filename,105,60,False,True,True)
 
 #---------------------Section 5: GUI----------------------------#
 """
 In this section of the code, GUI are designed
-function main_ui -> displays the first welcome display
-function browse_files -> open file selection window
+function main_ui_window -> displays the first welcome display
+function browse_file_window -> open file selection window
 function simulation_options_window -> give simulation options to user based on their chosen file
 function open_help_window -> tutorials and helps.
 """
 
-def main_ui():
+def main_ui_window():
     window = tk.Tk()
     window.title("Stock Price ODE Analysis")
            
@@ -466,13 +466,13 @@ def main_ui():
         window.destroy()
 
     tk.Entry()
-    tk.Button(text="💹 Start",width=15,height=2,command=browse_files).pack(pady=10,padx=20, side=LEFT)
+    tk.Button(text="💹 Start",width=15,height=2,command=browse_file_window).pack(pady=10,padx=20, side=LEFT)
     tk.Button(text="❓ Help",width=15,height=2,command=open_help_window).pack(pady=10,padx=20, side=LEFT)
     tk.Button(text="❌ Exit",width=15,height=2,command=quit_program).pack(pady=10,padx=20, side=LEFT)
 
     window.mainloop()
 
-def browse_files():
+def browse_file_window():
     isFileCorrect = False
     while not isFileCorrect:
         filename = tk.filedialog.askopenfilename(title = "Select file",filetypes = (("CSV Files","*.csv"),))
@@ -486,7 +486,7 @@ def browse_files():
 
 def simulation_window(filename):
     simulationWindow = tk.Tk()
-    simulationWindow.title(f"Running simulation on {os.path.basename(filename)}...")
+    simulationWindow.title(f"Result & Analysis -- Running simulation on {os.path.basename(filename)}...")
     curr = pd.read_csv(filename)
 
     dateList = [string_to_date(x).strftime("%Y-%m-%d") for x in list(curr['Date'])]
@@ -553,17 +553,20 @@ def simulation_window(filename):
         print("Hello! This function is to save report as .pdf")
         try:
             startSimulation(displayFit = False, displayForecast = False, printReport = True)
-            messagebox.showinfo("✅ Report Generated","Report successfully generated.")
+
+            messagebox.showinfo("✅ Report Generated",f"Report successfully generated and saved at {Path().absolute()}")
         except Exception as e:
-            messagebox.showerror("❌ Report Not Generated","Report not generated due to error: {e}")
+            print(e)
+            messagebox.showerror("❌ Report Not Generated",f"Report not generated due to error: {e}")
 
     def generate_csv():
         print("Hello! This function is to save raw data as .csv")
         try:
             startSimulation(displayFit = False, displayForecast = False, printReport = False, saveCSV = True)
-            messagebox.showinfo("✅ Report Generated","Report successfully generated.")
+            messagebox.showinfo("✅ .csv file Generated",f".csv file successfully generated and saved at {Path().absolute()}")
         except Exception as e:
-            messagebox.showerror("❌ Report Not Generated","Report not generated due to error: {e}")
+            print(e)
+            messagebox.showerror(f"❌ .csv file Not Generated",f".csv file not generated due to error: {e}")
         
  
     fitFigure = startSimulation(True, False, False)
@@ -571,11 +574,21 @@ def simulation_window(filename):
     
     canvas1 = FigureCanvasTkAgg(fitFigure, master = simulationWindow)
     canvas1.draw()
-    canvas1.get_tk_widget().grid(padx=20, pady=5, row=1, column = 2, rowspan = 18, columnspan = 4)
+    canvas1.get_tk_widget().grid(padx=20, pady=5, row=1, column = 2, rowspan = 12, columnspan = 4)
 
     canvas2 = FigureCanvasTkAgg(forecastFigure, master = simulationWindow)
     canvas2.draw()
-    canvas2.get_tk_widget().grid(padx=20, pady=5, row=19, column = 2, rowspan = 12, columnspan = 4)
+    canvas2.get_tk_widget().grid(padx=20, pady=5, row=13, column = 2, rowspan = 12, columnspan = 4)
+
+    """
+    toolbar1 = NavigationToolbar2Tk(canvas1,simulationWindow, pack_toolbar=False)
+    toolbar1.update_idletasks()
+    toolbar1.grid(padx=20, pady=5, row=1, column = 2, columnspan = 4)
+
+    toolbar2 = NavigationToolbar2Tk(canvas2,simulationWindow, pack_toolbar=False)
+    toolbar2.update_idletasks()
+    toolbar2.grid(padx=20, pady=5, row=14, column = 2, columnspan = 4)
+    """
 
     def updateForecast():
         for item in canvas2.get_tk_widget().find_all():
@@ -586,7 +599,7 @@ def simulation_window(filename):
         forecastFigure = startSimulation(False, True, False)
         canvas2 = FigureCanvasTkAgg(forecastFigure, master = simulationWindow)
         canvas2.draw_idle()
-        canvas2.get_tk_widget().grid(padx=20, pady=5, row=19, column = 2, rowspan = 12, columnspan = 4)
+        canvas2.get_tk_widget().grid(padx=20, pady=5, row=13, column = 2, rowspan = 12, columnspan = 4)
 
     tk.Button(simulationWindow, 
         text="🔎 Run Forecast",
@@ -598,13 +611,13 @@ def simulation_window(filename):
         text="📰 Save report as .pdf",
         width=20,height=2,
         padx=20, pady=5,
-        command=print_report).grid(padx=20, pady=5, row=16,columnspan=2,sticky=W)
+        command=print_report).grid(padx=20, pady=5, row=15,columnspan=2,sticky=W)
 
     tk.Button(simulationWindow, 
         text="📰 Save raw data as .csv",
         width=20,height=2,
         padx=20, pady=5,
-        command=generate_csv).grid(padx=20, pady=5, row=17,columnspan=2,sticky=W)
+        command=generate_csv).grid(padx=20, pady=5, row=16,columnspan=2,sticky=W)
 
 def open_help_window():
     helpText = [
@@ -650,4 +663,4 @@ def open_help_window():
     text.insert(INSERT, '\n'.join(helpText))
     text.pack(padx=20, pady=20)
 
-main_ui()
+main_ui_window()
