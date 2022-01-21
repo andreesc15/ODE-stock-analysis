@@ -594,11 +594,19 @@ def simulation_window(filename):
     
     canvas1 = FigureCanvasTkAgg(fitFigure, master = simulationWindow)
     canvas1.draw()
-    canvas1.get_tk_widget().grid(padx=20, pady=5, row=1, column = 2, rowspan = 12, columnspan = 6)
+    canvas1.get_tk_widget().grid(padx=20, pady=5, row=2, column = 2, rowspan = 10, columnspan = 6)
+
+    toolbarFrame1 = tk.Frame(master=simulationWindow)
+    toolbarFrame1.grid(row=1,column=2)
+    toolbar1 = NavigationToolbar2Tk(canvas1, toolbarFrame1)
 
     canvas2 = FigureCanvasTkAgg(forecastFigure, master = simulationWindow)
     canvas2.draw()
-    canvas2.get_tk_widget().grid(padx=20, pady=5, row=13, column = 2, rowspan = 12, columnspan = 6)
+    canvas2.get_tk_widget().grid(padx=20, pady=5, row=13, column = 2, rowspan = 10, columnspan = 6)
+
+    toolbarFrame2 = tk.Frame(master=simulationWindow)
+    toolbarFrame2.grid(row=12,column=2)
+    toolbar2 = NavigationToolbar2Tk(canvas2, toolbarFrame2)
 
     def updateForecast():
         for item in canvas2.get_tk_widget().find_all():
@@ -609,7 +617,11 @@ def simulation_window(filename):
         forecastFigure = startSimulation(False, True, False)
         canvas2 = FigureCanvasTkAgg(forecastFigure, master = simulationWindow)
         canvas2.draw_idle()
-        canvas2.get_tk_widget().grid(padx=20, pady=5, row=13, column = 2, rowspan = 12, columnspan = 6)
+        canvas2.get_tk_widget().grid(padx=20, pady=5, row=13, column = 2, rowspan = 10, columnspan = 6)
+
+        toolbarFrame2 = tk.Frame(master=simulationWindow)
+        toolbarFrame2.grid(row=12,column=2)
+        toolbar2 = NavigationToolbar2Tk(canvas2, toolbarFrame2)
 
     tk.Button(simulationWindow, 
         text="🔎 Run Forecast",
