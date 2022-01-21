@@ -1,5 +1,7 @@
 #---------------------Section 1: Libraries----------------------#
 
+from asyncio.windows_events import NULL
+from genericpath import isfile
 from dateutil import parser
 from tkcalendar import DateEntry
 from datetime import date, datetime, timedelta
@@ -14,6 +16,7 @@ import os as os
 from fpdf import FPDF
 import csv as csv
 from pathlib import Path
+import re
 
 #---------------------Section 2: Mathematic Model---------------#
 
@@ -267,8 +270,8 @@ def run_simulation(filename, forecast_t_start, forecast_t_total, displayFit, dis
         return
 
     #Start plotting here
-    fig1 = plt.figure()
-    fig2 = plt.figure()
+    fig1 = plt.figure(figsize=(10,4))
+    fig2 = plt.figure(figsize=(10,4))
 
     #----------------------- generate forecast plot
     if displayForecast or printReport:
@@ -308,7 +311,7 @@ def run_simulation(filename, forecast_t_start, forecast_t_total, displayFit, dis
             label='Data')
         
         ax2.set_xticks(
-            data_model[:].to_numpy()[:,0][::20])
+            data_model[:].to_numpy()[:,0][::len(dateList)//20])
         ax2.set_title(f"Fit {os.path.basename(filename)},\n{dateList[0]} to {dateList[-1]}\n(MAPE: {fit_MAPE:.4}; RMSPE: {fit_RMSPE:.4})")
         ax2.legend()
         ax2.tick_params(axis='both', which='both', labelsize=7, labelbottom = True, labelrotation = 45)
@@ -450,7 +453,7 @@ function open_help_window -> tutorials and helps.
 
 def main_ui_window():
     window = tk.Tk()
-    window.title("Stock Price ODE Analysis")
+    window.title("Stock Price Forecast & Analysis")
            
     tk.Label(
         text="Stock Price Analysis Using\nNon-Linear Ordinary Differential Equation", 
@@ -474,19 +477,36 @@ def main_ui_window():
 
 def browse_file_window():
     isFileCorrect = False
-    while not isFileCorrect:
+    isDateCorrect = False
+
+    while not isDateCorrect and not isFileCorrect:
+        isFileCorrect, isDateCorrect = False, False
+
         filename = tk.filedialog.askopenfilename(title = "Select file",filetypes = (("CSV Files","*.csv"),))
         curr = pd.read_csv(filename)
         if list(curr.columns) == ['Date','Close']:
-            #simulation_options_window(filename)
+            isFileCorrect = True 
+        
+        if isFileCorrect:
+            dateRegex = re.compile(r"\d{4}-\d{2}-\d{2}")
+            for i in curr['Date']:
+                if dateRegex.findall(i) == []:
+                    isDateCorrect = False
+                    break
+                isDateCorrect = True
+        
+        if isDateCorrect and isFileCorrect:
             simulation_window(filename)
-            isFileCorrect = True
+        elif isFileCorrect:
+            messagebox.showerror("FileError","Date Format Error: All dates in \'Date\' column must be formatted as YYYY-MM-DD. Please check your file and try again.")     
+        elif isDateCorrect:
+            messagebox.showerror("FileError","File Error: file does not match the format required. Make sure it's a 2 columns .csv file with \'Date\' and \'Close\' as headers and try again.")       
         else:
-            messagebox.showerror("FileError","File Error -- file does not match the format required. Make sure it's a 2 columns .csv file with \'Date\' and \'Close\' as headers and try again.")
+            messagebox.showerror("FileError","File Error: file does not match the format required. Make sure it's a 2 columns .csv file with \'Date\' and \'Close\' as headers and dates are formatted as YYYY-MM-DD and try again.")
 
 def simulation_window(filename):
     simulationWindow = tk.Tk()
-    simulationWindow.title(f"Result & Analysis -- Running simulation on {os.path.basename(filename)}...")
+    simulationWindow.title(f"Stock Price Forecast & Analysis -- Running simulation on {os.path.basename(filename)}...")
     curr = pd.read_csv(filename)
 
     dateList = [string_to_date(x).strftime("%Y-%m-%d") for x in list(curr['Date'])]
@@ -574,21 +594,11 @@ def simulation_window(filename):
     
     canvas1 = FigureCanvasTkAgg(fitFigure, master = simulationWindow)
     canvas1.draw()
-    canvas1.get_tk_widget().grid(padx=20, pady=5, row=1, column = 2, rowspan = 12, columnspan = 4)
+    canvas1.get_tk_widget().grid(padx=20, pady=5, row=1, column = 2, rowspan = 12, columnspan = 6)
 
     canvas2 = FigureCanvasTkAgg(forecastFigure, master = simulationWindow)
     canvas2.draw()
-    canvas2.get_tk_widget().grid(padx=20, pady=5, row=13, column = 2, rowspan = 12, columnspan = 4)
-
-    """
-    toolbar1 = NavigationToolbar2Tk(canvas1,simulationWindow, pack_toolbar=False)
-    toolbar1.update_idletasks()
-    toolbar1.grid(padx=20, pady=5, row=1, column = 2, columnspan = 4)
-
-    toolbar2 = NavigationToolbar2Tk(canvas2,simulationWindow, pack_toolbar=False)
-    toolbar2.update_idletasks()
-    toolbar2.grid(padx=20, pady=5, row=14, column = 2, columnspan = 4)
-    """
+    canvas2.get_tk_widget().grid(padx=20, pady=5, row=13, column = 2, rowspan = 12, columnspan = 6)
 
     def updateForecast():
         for item in canvas2.get_tk_widget().find_all():
@@ -599,25 +609,25 @@ def simulation_window(filename):
         forecastFigure = startSimulation(False, True, False)
         canvas2 = FigureCanvasTkAgg(forecastFigure, master = simulationWindow)
         canvas2.draw_idle()
-        canvas2.get_tk_widget().grid(padx=20, pady=5, row=13, column = 2, rowspan = 12, columnspan = 4)
+        canvas2.get_tk_widget().grid(padx=20, pady=5, row=13, column = 2, rowspan = 12, columnspan = 6)
 
     tk.Button(simulationWindow, 
         text="🔎 Run Forecast",
         width=20,height=2,
         padx=20, pady=5,
         command=updateForecast).grid(padx=20, pady=5, row=6,columnspan=2,sticky=W)
-
+    
     tk.Button(simulationWindow, 
         text="📰 Save report as .pdf",
         width=20,height=2,
         padx=20, pady=5,
-        command=print_report).grid(padx=20, pady=5, row=15,columnspan=2,sticky=W)
+        command=print_report).grid(padx=20, pady=2, row=17,columnspan=2,sticky=W)
 
     tk.Button(simulationWindow, 
         text="📰 Save raw data as .csv",
         width=20,height=2,
         padx=20, pady=5,
-        command=generate_csv).grid(padx=20, pady=5, row=16,columnspan=2,sticky=W)
+        command=generate_csv).grid(padx=20, pady=2, row=18,columnspan=2,sticky=W)
 
 def open_help_window():
     helpText = [
@@ -629,18 +639,17 @@ def open_help_window():
             "To start, click \"💹 Start\". You will then be directed to choose a .csv file to be analyzed.",
             "Only .csv files with 2 columns -- \'Date\' & \'Close\' -- are accepted.", 
             "Otherwise, it will show error message showing that your file is not compatible",
+            "Date format should be YYYY-MM-DD, otherwise the application will not accept and show error message showing that your file is not compatible",
             "",
             "---",
             "2. Application Features",
-            "After your .csv files containing data is successfully uploaded, there will be several features available to use.",
-            "Fit will take the entire data's date interval and start a fitting process.",
-            "Forecast will take user input's starting date and duration and start forecasting process",
+            "After your .csv files containing data is successfully uploaded, model fit will be automatically displayed alongside the error rate.",
+            "Forecast will take user input's starting date and duration and start forecasting process (a forecast with default value of the first date given on data, 45 days are created as example)",
             "(See section below for further details on fit and forecast methodology)", 
             "",
-            "Display Fit & Forecast -> displaying both fit and forecast for given starting date and duration in one display",
-            "Display Fit -> displaying fit only",
-            "Display Forecast -> displaying forecast for given starting date and duration only",
-            "Generate Report -> generating complete fit and forecast report in .pdf format",
+            "Run Forecast -> displaying forecast for given starting date and duration",
+            "Generate pdf Report -> generating complete fit and forecast report in .pdf format",
+            "Generate csv raw data -> generating fit and forecast's raw number data in .csv format",
             "---",
             "3. Mathematic Model Recap",
             "This application is based on stock price estimation and prediction using non-linear ODE based Logistical Equation",
@@ -659,7 +668,7 @@ def open_help_window():
     helpWindow.title("Help Window")
     tk.Label(helpWindow, text="❓ Help Page",font="Calibri 18 bold",padx=20,pady=20).pack() 
         
-    text = tk.Text(helpWindow, wrap=WORD, font="Calibri 11")
+    text = tk.Text(helpWindow, wrap=WORD, font="Consolas 11")
     text.insert(INSERT, '\n'.join(helpText))
     text.pack(padx=20, pady=20)
 
