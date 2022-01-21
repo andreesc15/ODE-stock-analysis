@@ -286,9 +286,8 @@ def run_simulation(filename, forecast_t_start, forecast_t_total, displayFit, dis
             data_model[forecast_t_start:forecast_t_start+forecast_t_total+3].to_numpy()[0:,1],
             label='Data')
         
-        ax1.set_xticks(
-            data_model[forecast_t_start:forecast_t_start+forecast_t_total+3].to_numpy()[0:,0][::5])
-        ax1.set_title(f"Forecast {os.path.splitext(os.path.basename(filename))[0]}\nFrom {dateList[forecast_t_start]}, {forecast_t_total} trading days long\n(MAPE: {forecast_MAPE:.4}; RMSPE: {forecast_RMSPE:.4})")
+        ax1.set_xticks(data_model[forecast_t_start:forecast_t_start+forecast_t_total+3].to_numpy()[0:,0][::5])
+        ax1.set_title(f"Forecast {os.path.splitext(os.path.basename(filename))[0]} From {dateList[forecast_t_start]}, {forecast_t_total} trading days long\n(MAPE: {forecast_MAPE:.4}; RMSPE: {forecast_RMSPE:.4})")
         ax1.legend()
         ax1.tick_params(axis='both', which='both', labelsize=7, labelbottom = True, labelrotation = 45)
 
@@ -310,9 +309,8 @@ def run_simulation(filename, forecast_t_start, forecast_t_total, displayFit, dis
             data_model[:].to_numpy()[:,1],
             label='Data')
         
-        ax2.set_xticks(
-            data_model[:].to_numpy()[:,0][::len(dateList)//20])
-        ax2.set_title(f"Fit {os.path.basename(filename)},\n{dateList[0]} to {dateList[-1]}\n(MAPE: {fit_MAPE:.4}; RMSPE: {fit_RMSPE:.4})")
+        ax2.set_xticks(data_model[:].to_numpy()[:,0][::len(dateList)//20])
+        ax2.set_title(f"Fit {os.path.basename(filename)}, {dateList[0]} to {dateList[-1]}\n(MAPE: {fit_MAPE:.4}; RMSPE: {fit_RMSPE:.4})")
         ax2.legend()
         ax2.tick_params(axis='both', which='both', labelsize=7, labelbottom = True, labelrotation = 45)
 
